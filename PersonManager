@@ -1,0 +1,241 @@
+// Emmanuel Jacob
+// Final Project
+//05/05/2025
+import model.*;
+import exceptions.*;
+import javax.swing.*;
+import java.awt.BorderLayout;
+import java.awt.GridLayout;
+import java.awt.event.*;
+import java.io.*;
+import java.util.List;
+import java.util.Collections;
+
+public class PersonManager extends JFrame {
+    private DefaultListModel<Person> personListModel = new DefaultListModel<>();
+    private JList<Person> personList = new JList<>(personListModel);
+    private File currentFile = null;
+    private boolean changed = false;
+
+    private JMenuItem saveItem, saveAsItem;
+
+    public PersonManager() {
+        super("Person Manager");
+
+        setLayout(new BorderLayout());
+        personList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        add(new JScrollPane(personList), BorderLayout.CENTER);
+
+        createMenuBar();
+        createButtons();
+
+        addWindowListener(new WindowAdapter() {
+            public void windowClosing(WindowEvent e) {
+                handleClose();
+            }
+        });
+
+        setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
+        setSize(700, 600);
+        setLocationRelativeTo(null);
+        updateTitle(); 
+        setVisible(true);
+    }
+
+    private void createMenuBar() {
+        JMenuBar menuBar = new JMenuBar();
+        JMenu fileMenu = new JMenu("File");
+
+        JMenuItem newItem = new JMenuItem("New");
+        newItem.addActionListener(e -> handleNew());
+        fileMenu.add(newItem);
+
+        JMenuItem openItem = new JMenuItem("Open...");
+        openItem.addActionListener(e -> handleOpen());
+        fileMenu.add(openItem);
+
+        saveItem = new JMenuItem("Save");
+        saveItem.addActionListener(e -> handleSave());
+        fileMenu.add(saveItem);
+
+        saveAsItem = new JMenuItem("Save As...");
+        saveAsItem.addActionListener(e -> handleSaveAs());
+        fileMenu.add(saveAsItem);
+
+        JMenuItem exitItem = new JMenuItem("Exit");
+        exitItem.addActionListener(e -> handleClose());
+        fileMenu.add(exitItem);
+
+        menuBar.add(fileMenu);
+
+        JMenu helpMenu = new JMenu("Help");
+        JMenuItem helpItem = new JMenuItem("About");
+        helpItem.addActionListener(e -> JOptionPane.showMessageDialog(this, "Person Manager Help"));
+        helpMenu.add(helpItem);
+
+        menuBar.add(helpMenu);
+        setJMenuBar(menuBar);
+    }
+
+    private void createButtons() {
+        JPanel panel = new JPanel();
+
+        JButton addPersonBtn = new JButton("Add Person");
+        addPersonBtn.addActionListener(e -> addPersonDialog("Person"));
+        panel.add(addPersonBtn);
+
+        JButton addRegBtn = new JButton("Add RegisteredPerson");
+        addRegBtn.addActionListener(e -> addPersonDialog("RegisteredPerson"));
+        panel.add(addRegBtn);
+
+        JButton addOCCCBtn = new JButton("Add OCCCPerson");
+        addOCCCBtn.addActionListener(e -> addPersonDialog("OCCCPerson"));
+        panel.add(addOCCCBtn);
+
+        JButton delBtn = new JButton("Delete");
+        delBtn.addActionListener(e -> {
+            Person selected = personList.getSelectedValue();
+            if (selected != null) {
+                personListModel.removeElement(selected);
+                changed = true;
+                updateTitle();
+            }
+        });
+        panel.add(delBtn);
+
+        add(panel, BorderLayout.SOUTH);
+    }
+
+    private void addPersonDialog(String type) {
+        saveItem.setEnabled(false);
+        saveAsItem.setEnabled(false);
+
+        JPanel input = new JPanel(new GridLayout(type.equals("OCCCPerson") ? 5 : 2, 2));
+        JTextField fn = new JTextField();
+        JTextField ln = new JTextField();
+        input.add(new JLabel("First Name:"));
+        input.add(fn);
+        input.add(new JLabel("Last Name:"));
+        input.add(ln);
+
+        JTextField day = null, month = null, year = null;
+        if (type.equals("OCCCPerson")) {
+            day = new JTextField();
+            month = new JTextField();
+            year = new JTextField();
+            input.add(new JLabel("Day:"));
+            input.add(day);
+            input.add(new JLabel("Month:"));
+            input.add(month);
+            input.add(new JLabel("Year:"));
+            input.add(year);
+        }
+
+        int result = JOptionPane.showConfirmDialog(this, input, "Add " + type, JOptionPane.OK_CANCEL_OPTION);
+        if (result == JOptionPane.OK_OPTION) {
+            try {
+                Person p;
+                if (type.equals("Person"))
+                    p = new Person(fn.getText(), ln.getText());
+                else if (type.equals("RegisteredPerson"))
+                    p = new RegisteredPerson(fn.getText(), ln.getText());
+                else {
+                    int d = Integer.parseInt(day.getText());
+                    int m = Integer.parseInt(month.getText());
+                    int y = Integer.parseInt(year.getText());
+                    p = new OCCCPerson(fn.getText(), ln.getText(), d, m, y);
+                }
+                personListModel.addElement(p);
+                changed = true;
+                updateTitle();
+            } catch (OCCCDateException e) {
+                JOptionPane.showMessageDialog(this, "Invalid Date!", "Error", JOptionPane.ERROR_MESSAGE);
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Invalid Input", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+
+        saveItem.setEnabled(true);
+        saveAsItem.setEnabled(true);
+    }
+
+    private void handleNew() {
+        if (!confirmSave()) return;
+        personListModel.clear();
+        currentFile = null;
+        changed = false;
+        updateTitle();
+        saveItem.setEnabled(true);
+        saveAsItem.setEnabled(true);
+    }
+
+    private void handleOpen() {
+        if (!confirmSave()) return;
+        JFileChooser fc = new JFileChooser();
+        if (fc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(fc.getSelectedFile()))) {
+                personListModel.clear();
+                List<?> loaded = (List<?>) ois.readObject();
+                for (Object o : loaded) personListModel.addElement((Person) o);
+                currentFile = fc.getSelectedFile();
+                changed = false;
+                updateTitle();
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(this, "Failed to load", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private void handleSave() {
+        if (currentFile != null) saveToFile(currentFile);
+        else handleSaveAs();
+    }
+
+    private void handleSaveAs() {
+        JFileChooser fc = new JFileChooser();
+        if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            currentFile = fc.getSelectedFile();
+            saveToFile(currentFile);
+        }
+    }
+
+    private void saveToFile(File file) {
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(file))) {
+            List<Person> toSave = Collections.list(personListModel.elements());
+            oos.writeObject(toSave);
+            changed = false;
+            updateTitle();
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(this, "Failed to save", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private boolean confirmSave() {
+        if (!changed) return true;
+
+        int res = JOptionPane.showConfirmDialog(this, "You have unsaved changes. Save before continuing?", "Confirm", JOptionPane.YES_NO_CANCEL_OPTION);
+        if (res == JOptionPane.CANCEL_OPTION) {
+            return false;
+        }
+        if (res == JOptionPane.YES_OPTION) {
+            handleSave();
+        }
+        return true;
+    }
+
+    private void handleClose() {
+        if (!confirmSave()) {
+            return;
+        }
+        System.exit(0);
+    }
+
+    private void updateTitle() {
+        String name = (currentFile != null) ? currentFile.getName() : "Untitled";
+        setTitle((changed ? "*" : "") + "Person Manager - " + name);
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(PersonManager::new);
+    }
+}
