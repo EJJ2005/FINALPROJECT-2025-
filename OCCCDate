@@ -1,0 +1,35 @@
+import java.io.Serializable;
+import java.util.Calendar;
+import java.util.GregorianCalendar;
+import exceptions.OCCCDateException;
+
+public class OCCCDate implements Serializable {
+    private GregorianCalendar calendar;
+
+    public OCCCDate(int day, int month, int year) throws OCCCDateException {
+        calendar = validateDate(day, month, year);
+    }
+
+    private GregorianCalendar validateDate(int day, int month, int year) throws OCCCDateException {
+        GregorianCalendar cal = new GregorianCalendar(year, month - 1, day);
+
+        if (cal.get(Calendar.DAY_OF_MONTH) != day ||
+            cal.get(Calendar.MONTH) != (month - 1) ||
+            cal.get(Calendar.YEAR) != year) {
+            throw new OCCCDateException("Invalid Date: " + day + "/" + month + "/" + year);
+        }
+
+        return cal;
+    }
+
+    public GregorianCalendar getCalendar() {
+        return calendar;
+    }
+
+    public String toString() {
+        int day = calendar.get(Calendar.DAY_OF_MONTH);
+        int month = calendar.get(Calendar.MONTH) + 1;
+        int year = calendar.get(Calendar.YEAR);
+        return day + "/" + month + "/" + year;
+    }
+}
