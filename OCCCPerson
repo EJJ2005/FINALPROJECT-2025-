@@ -1,0 +1,33 @@
+import java.io.Serializable;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
+import exceptions.OCCCDateException;
+
+public class OCCCPerson extends RegisteredPerson implements Serializable {
+    private int day, month, year;
+    private LocalDateTime createdTime;
+
+    public OCCCPerson(String firstName, String lastName, int day, int month, int year) throws OCCCDateException {
+        super(firstName, lastName);
+        if (!isValidDate(day, month, year)) {
+            throw new OCCCDateException("Invalid date. Please try again");
+        }
+        this.day = day;
+        this.month = month;
+        this.year = year;
+        this.createdTime = LocalDateTime.now();
+    }
+
+    private boolean isValidDate(int day, int month, int year) {
+        return true;
+    }
+
+    public String getCreatedTimeFormatted() {
+        return createdTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+    }
+
+    public String toString() {
+        return super.toString() + " | Date Entered in: " + getCreatedTimeFormatted();
+    }
+}
