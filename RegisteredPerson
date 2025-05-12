@@ -1,0 +1,6 @@
+public class RegisteredPerson extends Person {
+    public RegisteredPerson(String firstName, String lastName) {
+        super(firstName, lastName);
+    }
+}
+
